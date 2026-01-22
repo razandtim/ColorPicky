@@ -1,87 +1,126 @@
 #![no_std]
 #![no_main]
 
+mod ssd1283a;
+
 use defmt::*;
-use embassy_executor::Spawner;
-use embassy_rp::{
-    block::ImageDef,
-    gpio::{Level, Output},
-    spi::{Config as SpiConfig, Spi},
-};
-use embassy_time::{Delay, Duration, Timer};
-use embedded_graphics::{
-    mono_font::{ascii::FONT_10X20, MonoTextStyle},
-    pixelcolor::Rgb565,
-    prelude::*,
-    primitives::{Circle, PrimitiveStyle, Rectangle},
-    text::Text,
-};
-use embedded_hal_bus::spi::ExclusiveDevice;
-use st7735_lcd::{Orientation, ST7735};
+use defmt_rtt as _;
+use embedded_hal::delay::DelayNs;
+use panic_probe as _;
 
-use {defmt_rtt as _, panic_probe as _};
+use embassy_rp::block::ImageDef;
+use embassy_rp::gpio::{Level, Output};
+use embassy_rp::spi::{Config as SpiConfig, Spi};
+use embedded_graphics::mono_font::{ascii::FONT_6X10, MonoTextStyle};
+use embedded_graphics::pixelcolor::Rgb565;
+use embedded_graphics::prelude::*;
+use embedded_graphics::primitives::{Circle, PrimitiveStyle, Rectangle};
+use embedded_graphics::text::Text;
 
+use ssd1283a::Ssd1283a;
+
+// CRITICAL for RP2350: Boot block signature
 #[link_section = ".start_block"]
 #[used]
 static IMAGE_DEF: ImageDef = ImageDef::secure_exe();
 
-#[embassy_executor::main]
-async fn main(_spawner: Spawner) {
-    info!("boot: LCD display test");
+/// Simple blocking delay (no async)
+struct BlockingDelay;
 
-    let p = embassy_rp::init(Default::default());
+impl embedded_hal::delay::DelayNs for BlockingDelay {
+    fn delay_ns(&mut self, ns: u32) {
+        // ~150MHz clock, each cycle ~6.67ns
+        // delay_ns / 6.67 ≈ cycles, but asm::delay has overhead
+        // Rough approximation: 1000ns = 150 cycles
+        // For 150MHz: 1us = 150 cycles. 1ns is too fine, assume 1us commands min usually
+        // asm::delay takes clock cycles
+        let cycles = (ns as u64 * 150 / 1000) as u32;
+        if cycles > 0 {
+            cortex_m::asm::delay(cycles);
+        }
+    }
+}
 
-    // SPI pins for display
+#[cortex_m_rt::entry]
+fn main() -> ! {
+    info!("SSD1283A LCD init...");
+
+    // Use ROSC to avoid crystal issues, safe default for Pico 2
+    let mut config = embassy_rp::config::Config::default();
+    config.clocks = embassy_rp::clocks::ClockConfig::rosc();
+    let p = embassy_rp::init(config);
+
+    // ==========================================
+    // LCD Wiring Configuration (User Provided)
+    // ==========================================
+    // VCC: 3V3
+    // LED: 3V3
+    // GND: GND
+    //
+    // SCK: GP18
+    // SDA: GP19 (MOSI)
+    // A0 : GP20 (Data/Command)
+    // RST: GP16
+    // CS : GP17
+    // ==========================================
+
     let clk = p.PIN_18; // SCK
-    let mosi = p.PIN_19; // SDA/MOSI
-    let miso = p.PIN_16; // Not used but needed for SPI (can be any unused pin)
+    let mosi = p.PIN_19; // SDA / MOSI
 
     // Control pins
-    let cs = Output::new(p.PIN_17, Level::High); // Chip Select
-    let dc = Output::new(p.PIN_20, Level::Low); // Data/Command (A0)
-    let rst = Output::new(p.PIN_21, Level::High); // Reset
+    // Initial states: CS high (inactive), RST high (inactive), DC high (data)
+    let cs = Output::new(p.PIN_17, Level::High);
+    let rst = Output::new(p.PIN_16, Level::High);
+    let dc = Output::new(p.PIN_20, Level::High); // A0
 
-    // Configure SPI
+    // Configure SPI - Mode 0 (CPOL=0, CPHA=0)
     let mut spi_config = SpiConfig::default();
-    spi_config.frequency = 32_000_000; // 32 MHz
+    spi_config.frequency = 2_000_000; // Slow for stability
 
-    let spi = Spi::new_blocking(p.SPI0, clk, mosi, miso, spi_config);
-    let spi_device = ExclusiveDevice::new_no_delay(spi, cs).unwrap();
+    // Create SPI 0 instance (blocking mode, TX only is fine)
+    let spi = Spi::new_blocking_txonly(p.SPI0, clk, mosi, spi_config);
 
-    // Create display driver
-    let mut display = ST7735::new(spi_device, dc, rst, true, false, 130, 130);
+    // Create display driver instance
+    let mut display = Ssd1283a::new(spi, dc, rst, Some(cs));
 
     // Initialize display
-    display.init(&mut Delay).unwrap();
-    display.set_orientation(&Orientation::Landscape).unwrap();
-    info!("Display initialized!");
+    let mut delay = BlockingDelay;
 
-    // Clear screen to black
-    display.clear(Rgb565::BLACK).unwrap();
-    info!("Screen cleared to black");
+    info!("Resetting and initializing display...");
+    match display.init(&mut delay) {
+        Ok(_) => info!("Display initialized successfully!"),
+        Err(_) => error!("Display init failed! Check wiring."),
+    }
 
-    // Draw a red rectangle
-    Rectangle::new(Point::new(10, 10), Size::new(50, 50))
+    // 1. Clear screen with Blue
+    let _ = Rectangle::new(Point::new(0, 0), Size::new(130, 130))
+        .into_styled(PrimitiveStyle::with_fill(Rgb565::BLUE))
+        .draw(&mut display);
+
+    // 2. Draw a Red Rectangle
+    let _ = Rectangle::new(Point::new(10, 10), Size::new(110, 50))
         .into_styled(PrimitiveStyle::with_fill(Rgb565::RED))
-        .draw(&mut display)
-        .unwrap();
+        .draw(&mut display);
 
-    // Draw a green circle
-    Circle::new(Point::new(70, 10), 50)
+    // 3. Draw a Green Circle
+    let _ = Circle::new(Point::new(50, 75), 40)
         .into_styled(PrimitiveStyle::with_fill(Rgb565::GREEN))
-        .draw(&mut display)
-        .unwrap();
+        .draw(&mut display);
 
-    // Draw text
-    let style = MonoTextStyle::new(&FONT_10X20, Rgb565::WHITE);
-    Text::new("Hello!", Point::new(30, 100), style)
-        .draw(&mut display)
-        .unwrap();
+    // 4. Draw "ColorPicky" text
+    let text_style = MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE);
+    let _ = Text::new("ColorPicky", Point::new(35, 35), text_style).draw(&mut display);
 
-    info!("Drawing complete!");
+    info!("Drawing done. Blinking LED now.");
 
-    // Keep running
+    // LED on Pico 2W/Pico 2 is usually GP25 or wireless chip, but standard Pico 2 has GP25
+    // User didn't specify LED pin, assuming standard onboard or user led.
+    // If Pico 2W, LED is connected to wireless chip - more complex.
+    // Assuming standard Pico 2 uses GP25 for onboard LED.
+    let mut led = Output::new(p.PIN_25, Level::Low);
+
     loop {
-        Timer::after(Duration::from_secs(1)).await;
+        led.toggle();
+        delay.delay_ns(500_000_000); // 500ms
     }
 }

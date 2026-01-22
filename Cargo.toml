@@ -4,63 +4,30 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Async Runtime
-embassy-executor = { git = "https://github.com/embassy-rs/embassy", branch = "main", features = [
-    "arch-cortex-m",
-    "executor-thread",
-    "executor-interrupt",
-    "defmt",
-] }
-embassy-time = { git = "https://github.com/embassy-rs/embassy", branch = "main", features = [
-    "defmt",
-    "defmt-timestamp-uptime",
-] }
-embassy-rp = { git = "https://github.com/embassy-rs/embassy", branch = "main", features = [
-    "defmt",
-    "time-driver",
-    "critical-section-impl",
-    "rp235xa",
-] }
-embassy-net = { git = "https://github.com/embassy-rs/embassy", branch = "main", features = [
-    "defmt",
-    "tcp",
-    "udp",
-    "dhcpv4",
-    "medium-ethernet",
-] }
+# RP2350 HAL (embassy-rp with rp2350 feature)
+embassy-rp = { version = "0.4", features = ["rp235xa", "critical-section-impl"] }
 
-# WiFi Chip Communication
-cyw43 = { git = "https://github.com/embassy-rs/embassy", branch = "main", features = [
-    "defmt",
-    "firmware-logs",
-] }
-cyw43-pio = { git = "https://github.com/embassy-rs/embassy", branch = "main", features = [
-    "defmt",
-] }
+# Embedded HAL traits
+embedded-hal = "1.0"
 
-# Logging
+# Embedded graphics for drawing
+embedded-graphics = "0.8"
+
+# Cortex-M runtime and intrinsics
+cortex-m = "0.7"
+cortex-m-rt = "0.7"
+
+# Debugging via RTT (for debugprobe)
 defmt = "0.3"
 defmt-rtt = "0.4"
 panic-probe = { version = "0.3", features = ["print-defmt"] }
 
-# Cortex M
-cortex-m = { version = "0.7.6", features = ["inline-asm"] }
-cortex-m-rt = "0.7.3"
-
-# Display
-embedded-graphics = "0.8"
-st7735-lcd = "0.10"
-embedded-hal-bus = "0.2"
-
-
-# Fix for some linker issues
 [profile.release]
-debug = 1
+opt-level = "z"     # Optimize for size
 lto = true
-opt-level = 'z'
 codegen-units = 1
+debug = true        # Keep symbols for debugging
 
 [profile.dev]
-debug = 1
-lto = true
-opt-level = "z"
+opt-level = 1       # Some optimization to fit in flash
+debug = true

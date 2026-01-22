@@ -1,14 +1,11 @@
-
 [build]
 target = "thumbv8m.main-none-eabihf"
 
 [target.thumbv8m.main-none-eabihf]
-runner = "probe-rs run --chip RP235x --protocol swd"
+# probe-rs with explicit reset after flashing
+runner = "probe-rs run --chip RP235x --protocol swd --always-print-stacktrace"
 rustflags = [
-    "-C",
-    "link-arg=--nmagic",
-    "-C",
-    "link-arg=-Tlink.x",
-    "-C",
-    "link-arg=-Tdefmt.x",
+    "-C", "link-arg=--nmagic",
+    "-C", "link-arg=-Tlink.x",
+    "-C", "link-arg=-Tdefmt.x",
 ]
