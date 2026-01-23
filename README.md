@@ -75,3 +75,9 @@ This project uses the bleeding-edge **Embassy** async ecosystem.
 ## 📜 License
 
 MIT
+
+---
+
+**Made by:**  
+Razvan Andrei Timofte  
+Group 1241EC - IoT
