@@ -5,7 +5,8 @@ edition = "2021"
 
 [dependencies]
 # RP2350 HAL (embassy-rp with rp2350 feature)
-embassy-rp = { version = "0.4", features = ["rp235xa", "critical-section-impl"] }
+# RP2350 HAL (embassy-rp with rp2350 feature)
+embassy-rp = { git = "https://github.com/embassy-rs/embassy", features = ["rp235xa", "critical-section-impl", "time-driver"] }
 
 # Embedded HAL traits
 embedded-hal = "1.0"
@@ -21,6 +22,10 @@ cortex-m-rt = "0.7"
 defmt = "0.3"
 defmt-rtt = "0.4"
 panic-probe = { version = "0.3", features = ["print-defmt"] }
+embassy-time = { git = "https://github.com/embassy-rs/embassy", features = ["defmt", "defmt-timestamp-uptime"] }
+embassy-executor = { git = "https://github.com/embassy-rs/embassy", features = ["arch-cortex-m", "executor-thread", "defmt"] }
+heapless = "0.8"
+
 
 [profile.release]
 opt-level = "z"     # Optimize for size
