@@ -5,6 +5,8 @@ pub enum ButtonEvent {
     SingleClick,
     DoubleClick,
     LongPress,
+    Held,     // Button is currently being held down
+    Released, // Button was just released (after being held)
 }
 
 pub struct ButtonInput<P> {
@@ -13,6 +15,7 @@ pub struct ButtonInput<P> {
     full_press_start: Option<Instant>,
     last_release_time: Option<Instant>,
     click_count: u8,
+    was_held_long: bool, // Track if we already fired Held events
 }
 
 impl<P: InputPin> ButtonInput<P> {
@@ -23,7 +26,13 @@ impl<P: InputPin> ButtonInput<P> {
             full_press_start: None,
             last_release_time: None,
             click_count: 0,
+            was_held_long: false,
         }
+    }
+
+    /// Check if button is currently pressed
+    pub fn is_held(&self) -> bool {
+        self.is_pressed
     }
 
     /// Poll the button state. Should be called frequently.
@@ -37,13 +46,19 @@ impl<P: InputPin> ButtonInput<P> {
             // Press started
             self.is_pressed = true;
             self.full_press_start = Some(now);
+            self.was_held_long = false;
         } else if !current_pressed && self.is_pressed {
             // Released
             self.is_pressed = false;
             let duration = now - self.full_press_start.unwrap_or(now);
 
-            if duration > Duration::from_millis(1000) {
-                // Reset click logic after long press
+            if self.was_held_long {
+                // Was sampling, now released - save the color
+                self.was_held_long = false;
+                self.click_count = 0;
+                return Some(ButtonEvent::Released);
+            } else if duration > Duration::from_millis(1000) {
+                // Long press without held mode
                 self.click_count = 0;
                 return Some(ButtonEvent::LongPress);
             } else if duration > Duration::from_millis(50) {
@@ -51,6 +66,21 @@ impl<P: InputPin> ButtonInput<P> {
                 self.click_count += 1;
                 self.last_release_time = Some(now);
             }
+        }
+
+        // While held, after 200ms threshold, start "sampling mode"
+        if self.is_pressed && !self.was_held_long {
+            let duration = now - self.full_press_start.unwrap_or(now);
+            if duration > Duration::from_millis(200) {
+                self.was_held_long = true;
+                return Some(ButtonEvent::Held);
+            }
+        }
+
+        // If still held and in sampling mode, return Held continuously
+        if self.is_pressed && self.was_held_long {
+            Timer::after_millis(10).await;
+            return Some(ButtonEvent::Held);
         }
 
         // Logic to detect single vs double click

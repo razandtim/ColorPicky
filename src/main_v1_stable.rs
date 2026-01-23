@@ -175,19 +175,17 @@ async fn main(_spawner: Spawner) {
 
     loop {
         // 1. Poll Button
-        let mut is_sampling = false;
-
         if let Some(event) = button.poll().await {
             match event {
                 ButtonEvent::SingleClick => {
-                    // Quick tap - just save current color (if in Measuring mode)
                     if state.mode == AppMode::Measuring {
-                        state.push_history();
+                        state.push_history(); // Capture current
+                                              // Visual feedback? maybe
                     }
                 }
                 ButtonEvent::DoubleClick => {
                     state.toggle_mode();
-                    needs_redraw = true;
+                    needs_redraw = true; // Full screen redraw
                 }
                 ButtonEvent::LongPress => {
                     if state.mode == AppMode::History {
@@ -195,27 +193,22 @@ async fn main(_spawner: Spawner) {
                         needs_redraw = true;
                     }
                 }
-                ButtonEvent::Held => {
-                    // Button is being held - enable real-time sampling mode
-                    if state.mode == AppMode::Measuring {
-                        is_sampling = true;
-                    }
-                }
-                ButtonEvent::Released => {
-                    // Button released after hold - save the picked color
-                    if state.mode == AppMode::Measuring {
-                        state.push_history();
-                        needs_redraw = true; // Show stable result
-                    }
-                }
             }
         }
 
-        // 2. Sensor Read (Only in Measuring mode)
+        // 2. Sensor Read (Only in Measuring mode or periodically)
         if state.mode == AppMode::Measuring {
+            // Read every 100ms?
+            // We can check if time passed, but for now lets just read.
+            // sensor.read_all() takes time (I2C blocking), so it acts as delay.
             match sensor.read_all() {
                 Ok(rgbc) => {
                     state.current_rgbc = rgbc;
+                    // Simple white balance / scaling
+                    // TCS34725 clear channel C is brightness.
+                    // If C is 0, everything 0.
+                    // Normalize: r = r/c * 255
+
                     if rgbc.c > 0 {
                         let r8 = (rgbc.r as u32 * 255 / rgbc.c as u32) as u8;
                         let g8 = (rgbc.g as u32 * 255 / rgbc.c as u32) as u8;
@@ -226,20 +219,22 @@ async fn main(_spawner: Spawner) {
                             name,
                             color: embedded_graphics::pixelcolor::Rgb888::new(r8, g8, b8),
                         };
+
+                        // Update state if changed significantly?
+                        // For now just update always, UI drawing will handle flicker check
                         state.current_reading = Some(matched_color);
                     }
                 }
-                Err(_) => {}
+                Err(_) => {} // Ignore i2c fail
             }
         }
 
         // 3. Draw UI
-        // If sampling (button held), always redraw for real-time feedback
-        // Otherwise, only redraw on changes
+        // Only redraw if mode changed, or color name changed (avoids flicker)
         let current_name = state.current_reading.as_ref().map(|c| c.name);
         let color_changed = prev_color_name != current_name;
 
-        if needs_redraw || is_sampling || (state.mode == AppMode::Measuring && color_changed) {
+        if needs_redraw || (state.mode == AppMode::Measuring && color_changed) {
             display.fill_screen(Rgb565::BLACK).unwrap();
             needs_redraw = false;
             prev_color_name = current_name;
@@ -254,12 +249,8 @@ async fn main(_spawner: Spawner) {
             }
         }
 
-        // Delay - shorter when sampling for responsiveness
-        if is_sampling {
-            Timer::after_millis(30).await;
-        } else {
-            Timer::after_millis(100).await;
-        }
+        // Slower refresh rate to reduce flicker
+        Timer::after_millis(100).await;
     }
 }
 
@@ -278,9 +269,9 @@ fn draw_main_screen<D>(
         .ok();
 
     if let Some(c) = &state.current_reading {
-        // Color Box: 115x55 rectangle, centered (130-115)/2 = 7.5 ≈ 7
+        // Color Box: 95x55 rectangle, centered (130-95)/2 = 17
         let box_color = Rgb565::from(c.color);
-        Rectangle::new(Point::new(7, 20), Size::new(115, 55))
+        Rectangle::new(Point::new(17, 18), Size::new(95, 55))
             .into_styled(PrimitiveStyle::with_fill(box_color))
             .draw(display)
             .ok();

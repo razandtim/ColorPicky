@@ -16,9 +16,11 @@ A real-time color picking tool powered by **Rust**, **Embassy**, and the **RP235
     *   **Main Screen**: Live color preview box, name, and hex.
     *   **History Screen**: List of previously saved colors.
 *   **Controls**:
-    *   **Single Click**: Save current color to history.
-    *   **Double Click**: Toggle between Main and History screens.
-    *   **Long Press**: Clear history (in History mode).
+    *   **Hold Button**: Real-time color sampling mode - watch the color update live as you move the sensor!
+    *   **Release Button**: Saves the picked color to history
+    *   **Quick Tap**: Instantly save current color to history
+    *   **Double Tap**: Toggle between Main and History screens
+    *   **Long Press (in History)**: Clear all saved colors
 
 ## 🛠 Hardware Setup
 
