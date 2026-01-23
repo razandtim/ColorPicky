@@ -196,16 +196,21 @@ async fn main(_spawner: Spawner) {
                     }
                 }
                 ButtonEvent::Held => {
-                    // Button is being held - enable real-time sampling mode
+                    // Button is being held - enable real-time sampling mode (only in Measuring)
                     if state.mode == AppMode::Measuring {
                         is_sampling = true;
                     }
+                    // In History mode, we'll handle clear on Released after long hold
                 }
                 ButtonEvent::Released => {
-                    // Button released after hold - save the picked color
+                    // Button released after hold
                     if state.mode == AppMode::Measuring {
                         state.push_history();
-                        needs_redraw = true; // Show stable result
+                        needs_redraw = true;
+                    } else if state.mode == AppMode::History {
+                        // Long hold + release in History = clear history
+                        state.clear_history();
+                        needs_redraw = true;
                     }
                 }
             }
