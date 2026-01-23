@@ -68,9 +68,14 @@ This project uses the bleeding-edge **Embassy** async ecosystem.
     cargo run --release
     ```
 
-## 📸 Screenshots
+## 📸 Photos
 
-*(Add screenshots of Main View and History View here)*
+![20260123_030441 (2)](https://github.com/user-attachments/assets/650df984-5e4b-48c1-8758-c4408921fd63)
+![IMG-20260123-WA0030](https://github.com/user-attachments/assets/2e46d976-adc2-4b95-980e-dcdda3059260)
+![IMG-20260123-WA0028 (2)](https://github.com/user-attachments/assets/a464ceb3-0fd0-4ca4-a8a1-2ab2da3e47b5)
+![20260123_031750](https://github.com/user-attachments/assets/2db3e5dd-3259-414a-86d0-fac11ea59f1a)
+![20260123_031733](https://github.com/user-attachments/assets/94b2205e-c4bd-4459-9572-4d4a545c8bbe)
+
 
 ## 📜 License
 
