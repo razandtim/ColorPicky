@@ -102,7 +102,7 @@ where
 
         self.write_reg(0x07, 0x0233)?;
         self.write_reg(0x01, 0x2183)?;
-        self.write_reg(0x03, 0x6030)?; // Entry mode: RGB (not BGR)
+        self.write_reg(0x03, 0x6038)?; // Entry mode: RGB + 90° (AM=1) + ID=11 (Inc X, Inc Y)
         self.write_reg(0x2F, 0xFFFF)?;
         self.write_reg(0x2C, 0x8000)?;
         self.write_reg(0x27, 0x0570)?;
@@ -115,7 +115,7 @@ where
         Ok(())
     }
 
-    // Set window address with +2 offset (rotation 0) and start GRAM write
+    // Set window address with +2 offset (rotation 90) and start GRAM write
     fn set_window_and_write_start(
         &mut self,
         x1: u16,
@@ -123,14 +123,18 @@ where
         x2: u16,
         y2: u16,
     ) -> Result<(), Error<SPI::Error, CS::Error>> {
-        // Reg 0x44: horizontal RAM (x2+2, x1+2)
-        self.write_reg(0x44, (((x2 + 2) as u16) << 8) | ((x1 + 2) as u16))?;
+        // Swap X and Y for 90 degree rotation
+        // Reg 0x44: Horizontal RAM (Logical Y)
+        self.write_reg(0x44, (((y2 + 2) as u16) << 8) | ((y1 + 2) as u16))?;
 
-        // Reg 0x45: vertical RAM (y2+2, y1+2)
-        self.write_reg(0x45, (((y2 + 2) as u16) << 8) | ((y1 + 2) as u16))?;
+        // Reg 0x45: Vertical RAM (Logical X)
+        // Software Flip X to fix mirroring: Map (x1, x2) -> (129-x2, 129-x1)
+        let phys_x1 = 129 - x2;
+        let phys_x2 = 129 - x1;
+        self.write_reg(0x45, (((phys_x2 + 2) as u16) << 8) | ((phys_x1 + 2) as u16))?;
 
-        // Reg 0x21: RAM counter (y1+2, x1+2)
-        self.write_reg(0x21, (((y1 + 2) as u16) << 8) | ((x1 + 2) as u16))?;
+        // Reg 0x21: RAM counter set to start
+        self.write_reg(0x21, (((phys_x1 + 2) as u16) << 8) | ((y1 + 2) as u16))?;
 
         // Start GRAM write - CS low, send 0x22 command, then DC high for data
         self.start_transaction();
