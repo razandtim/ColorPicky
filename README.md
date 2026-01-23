@@ -1,80 +1,77 @@
-# ColorPicky - SSD1283A Display on Raspberry Pi Pico 2
+# ColorPicky - Alpha Version
+**The Rust Real-Life Color Picker**
 
-A Rust embedded project driving an SSD1283A 1.6" 130x130 LCD display using a Raspberry Pi Pico 2 (RP2350) with debugprobe.
+A real-time color picking tool powered by **Rust**, **Embassy**, and the **RP2350** (Raspberry Pi Pico 2W). It reads colors from real-world objects using a TCS34725 sensor, identifies them by name and hex code, and keeps a history of your findings.
 
-## Hardware Setup
+![Project Status](https://img.shields.io/badge/status-alpha-orange)
+![Rust](https://img.shields.io/badge/built_with-Rust-red)
 
-| LCD Pin | Pico 2 Pin |
-|---------|------------|
-| VCC | 3V3 (Pin 36) |
-| LED | 3V3 (Pin 36) |
-| SCK | GP18 |
-| SDA (MOSI) | GP19 |
-| A0 (DC) | GP20 |
-| RST | GP16 |
-| CS | GP17 |
-| GND | GND (Pin 23) |
+## 🌟 Features
 
-## Display Module
+*   **Real-time Color Sensing**: Reads RGB and Clear channel data from a TCS34725 sensor.
+*   **Color Naming**: Matches the sampled color to the nearest known color name (e.g., "Red", "Sky Blue", "Forest Green").
+*   **Hex & RGB Display**: Shows the precise Hex code and RGB values on screen.
+*   **History Mode**: Stores the last **10 saved colors** in a scrollable history list.
+*   **Interactive UI**:
+    *   **Main Screen**: Live color preview box, name, and hex.
+    *   **History Screen**: List of previously saved colors.
+*   **Controls**:
+    *   **Single Click**: Save current color to history.
+    *   **Double Click**: Toggle between Main and History screens.
+    *   **Long Press**: Clear history (in History mode).
 
-- **Module**: 1.6" SPI 130x130 LCD
-- **Controller**: SSD1283A
-- **Part Numbers**: 7290088N05, MSP1601
-- **Level Shifter**: LVC245A (onboard)
-- **Reference**: [LCDWiki MSP1601](https://www.lcdwiki.com/1.6inch_SPI_Module_SSD1283A_SKU:MSP1601)
+## 🛠 Hardware Setup
 
-## Features
+### Components
+*   **MCU**: Raspberry Pi Pico 2W (RP2350)
+*   **Display**: SSD1283A 1.6" 130x130 SPI LCD (https://www.lcdwiki.com/1.6inch_SPI_Module_SSD1283A_SKU:MSP1601)
+*   **Sensor**: TCS34725 RGB Color Sensor (I2C) (https://www.dfrobot.com/product-1546.html)
+*   **Input**: Push button
 
-- ✅ Custom SSD1283A Rust driver with `embedded-graphics` support
-- ✅ Full 130x130 pixel RGB565 display
-- ✅ Filled rectangles and circles
-- ✅ Text rendering via `embedded-graphics` mono_font
-- ✅ SPI communication at 2MHz (Mode 0)
+### Pinout Configuration
 
-## Dependencies
+| Component | Pin Function | Pico 2 Pin |
+|-----------|--------------|------------|
+| **Display** | | |
+| SSD1283A | VCC / LED | 3V3 |
+| | SCK | **GP18** |
+| | SDA (MOSI)| **GP19** |
+| | A0 (DC) | **GP20** |
+| | RST | **GP16** |
+| | CS | **GP17** |
+| **Sensor** | | |
+| TCS34725 | SDA | **GP6** |
+| | SCL | **GP7** |
+| | VCC | 3V3 |
+| **Input** | | |
+| Button | Signal | **GP15** (to GND) |
 
-```toml
-[dependencies]
-embassy-rp = { version = "0.4", features = ["rp235xa", "critical-section-impl"] }
-embedded-hal = "1.0"
-embedded-graphics = "0.8"
-cortex-m = "0.7"
-cortex-m-rt = "0.7"
-defmt = "0.3"
-defmt-rtt = "0.4"
-panic-probe = { version = "0.3", features = ["print-defmt"] }
-```
+## 📦 Dependencies & Tech Stack
 
-## Building & Flashing
+This project uses the bleeding-edge **Embassy** async ecosystem.
 
-```bash
-# Build release
-cargo build --release
+*   `embassy-rp` (RP2350 support)
+*   `embassy-main` (Async executor)
+*   `embedded-graphics` (UI rendering)
+*   `defmt` (High-performance logging)
 
-# Flash and run (with debugprobe)
-cargo run --release
-```
+> **Note**: Due to rapid development in the Embassy ecosystem, this project currently points to `git` dependencies to ensure compatibility.
 
-## Key Technical Details
+## 🚀 Building & Running
 
-### SSD1283A Driver Notes
+1.  **Install Prerequisites**:
+    *   Rust (stable)
+    *   `probe-rs` (`cargo install probe-rs --features cli`)
 
-1. **RAM Address Offset**: The SSD1283A requires a +2 pixel offset for window/RAM addresses
-2. **Pixel Format**: Little-endian RGB565 (low byte first)
-3. **Entry Mode**: 0x6030 for RGB color order
-4. **Init Sequence**: Based on ZinggJM/SSD1283A Arduino reference
+2.  **Run**:
+    ```bash
+    cargo run --release
+    ```
 
-### Known Working Configuration
+## 📸 Screenshots
 
-- SPI Mode 0 (CPOL=0, CPHA=0)
-- SPI Frequency: 2MHz
-- DC pin toggles between command (low) and data (high)
-- CS stays low during complete register write (command + data)
+*(Add screenshots of Main View and History View here)*
 
-## Screenshots
-
-![ColorPicky Display Working](screenshot.jpg)
-
-## License
+## 📜 License
 
 MIT
